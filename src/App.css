@@ -13,3 +13,12 @@
   height: 100vh;
   background-color: cadetblue;
 }
+
+.button-prev,
+.button-next {
+  background-color: #383838;
+  color: white;
+  border: 0;
+  margin: 100px 3px 0px;
+  padding: 10px 20px;
+}

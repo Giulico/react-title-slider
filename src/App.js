@@ -1,7 +1,15 @@
 import React, { Component } from 'react';
+
+// Styles
 import './App.css';
+
+// Components
 import Titles from './Titles.js';
 
+// Utilities
+import { debounce } from './utils';
+
+// Constatnts
 const data = ["lultima-risalita", "tag", "watch", "peekabeat", "linealight", "ventura", "claraluna", "pal-zileri", "piero-milano", "sharp", "aquardens", "tods", "cecchi", "lidl-italia", "feudi", "qc-terme", "copego", "fornasetti", "muller", "forno-bonomi", "campo-alle-comete", "oxydo", "fitri", "airoh", "creazioni", "fisg"];
 
 global.mouseCoords = {};
@@ -14,21 +22,27 @@ class App extends Component {
 
   state = {
     loaded: false,
+    width: window.innerWidth,
+    height: window.innerHeight,
   }
 
   constructor(props) {
     super(props);
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
     this.containerPerc = 20;
   }
 
   componentDidMount() {
+    this.setEvents();
+
     setTimeout(() => {
       this.setState({
         loaded: true,
       })
     }, 500);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('resize', this.resizeHandler);
   }
 
   render() {
@@ -38,8 +52,8 @@ class App extends Component {
           <Titles
             loaded={this.state.loaded}
             appState={{
-              width: this.width,
-              height: this.height
+              width: this.state.width,
+              height: this.state.height
             }}
             containerPerc={this.containerPerc}
             data={data}
@@ -49,6 +63,17 @@ class App extends Component {
       </React.Fragment>
     );
   }
+
+  setEvents() {
+    window.addEventListener('resize', this.resizeHandler, false);
+  }
+
+  resizeHandler = debounce(e => {
+    this.setState({
+      width: e.target.innerWidth,
+      height: e.target.innerHeight,
+    });
+  }, 500);
 
 }
 

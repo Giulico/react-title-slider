@@ -15,7 +15,7 @@ const Text = PIXI.Text;
 class Titles extends Component {
 
   componentDidMount() {
-    const {appState, data, containerPerc} = this.props;
+    const {appState, containerPerc} = this.props;
 
     this.width = appState.width;
     this.height = appState.height;
@@ -33,13 +33,10 @@ class Titles extends Component {
     this.app.stage.addChild(this.container);
 
     // Bounds
-    const appBounds = this.app.view.getBoundingClientRect();
-    this.top = appBounds.top;
-    this.bottom = this.top + this.canvasHeight;
+    this.setBounds();
 
     // Snaps
-    const distanceX = this.width / data.length;
-    this.snaps = data.map((name, index) =>  distanceX * index);
+    this.setSnaps();
 
     // Indices
     this.hoverTextIndex = 14; // Starting index
@@ -50,15 +47,21 @@ class Titles extends Component {
 
     // CONTROLKIT SETUP
     this.vars = {
-      color: '#fff',
       active: '#002aff',
+      color: '#fff',
+      hoverTime: 0.4,
+      hoverTimeRange: [0.1, 3],
+      moveTime: 1,
+      moveTimeRange: [0.1, 3],
     }
     const ck = new ControlKit();
     ck.addPanel({align: 'left'})
       .addGroup()
       .addSubGroup()
       .addColor(this.vars, 'color', { onChange: this.changeDefaultColor })
-      .addColor(this.vars, 'active', { onChange: this.changeActiveColor });
+      .addColor(this.vars, 'active', { onChange: this.changeActiveColor })
+      .addSlider(this.vars, 'hoverTime', 'hoverTimeRange')
+      .addSlider(this.vars, 'moveTime', 'moveTimeRange');
 
     // TITLES SETUP
     this.setup();
@@ -79,12 +82,31 @@ class Titles extends Component {
     document.removeEventListener('click', this.clickHandler);
   }
 
+  componentWillUpdate(nextProps) {
+    const { appState } = nextProps;
+    if (
+      appState.width !== this.props.appState.width
+      || appState.height !== this.props.appState.height
+    ) {
+      this.resizeHandler({
+        width: appState.width,
+        height: appState.height,
+      })
+    }
+  }
+
   render() {
     return (
+      <React.Fragment>
         <div
           className="Titles-intro"
           ref={c => this.appContent = c}
         />
+        <div>
+          <button onClick={this.goTo(-1)} className="button-prev">Prev</button>
+          <button onClick={this.goTo(1)} className="button-next">Next</button>
+        </div>
+      </React.Fragment>
     );
   }
 
@@ -167,6 +189,14 @@ class Titles extends Component {
     }
   }
 
+  goTo = (direction) => () => {
+    console.log(this.containerPercIndex + direction);
+
+    if (!this.isMoving) {
+      this.move(this.containerPercIndex + direction);
+    }
+  }
+
   loop = () => {
     const mouseY = global.mouseCoords.y;
 
@@ -229,7 +259,10 @@ class Titles extends Component {
 
   hover({from, to}) {
     // Shift element at the end (higher z-index)
-    this.container.swapChildren(to, this.container.children[this.container.children.length - 1]);
+    // Swap in the middle of the animation
+    setTimeout(() => {
+      this.container.swapChildren(to, this.container.children[this.container.children.length - 1]);
+    }, (this.vars.hoverTime / 2) * 1000);
 
     const toIndex = this.items.findIndex(item => item.text === to.text);
     const toX = this.snaps[toIndex];
@@ -260,8 +293,11 @@ class Titles extends Component {
           ? this.snaps[index] - (index * ((toIndex - index) / 2))
           : this.snaps[index] + (index * ((index - toIndex) / 2));
       const tint = isNewHoveredText ? this.vars.active : this.vars.color;
-      const tintTime = isNewHoveredText ? 0.2 : 0.4;
-      TweenMax.to(item, 0.4, {
+      const tintTime = isNewHoveredText
+        ? (this.vars.hoverTime - 0.2)
+        : (this.vars.hoverTime + 0.2);
+
+      TweenMax.to(item, this.vars.hoverTime, {
         alpha,
         x,
         ease: Power1.easeInOut,
@@ -272,7 +308,7 @@ class Titles extends Component {
           tint,
         },
         ease: Power1.easeInOut,
-      })
+      });
     });
 
   }
@@ -281,12 +317,27 @@ class Titles extends Component {
     this.orderItems(newTextIndex);
     this.isMoving = true;
 
-    this.items.forEach((item, index) => {
-      const x = (index === this.containerPercIndex)
-        ? this.snaps[index] + (item.width / 2)
-        : this.snaps[index];
+    // Order container children
+    if (this.items[this.containerPercIndex].text !== this.container.children[this.container.children.length - 1].text) {
+      // Swap in the middle of the animation
+      setTimeout(() => {
+        this.container.swapChildren(
+          this.items[this.containerPercIndex],
+          this.container.children[this.container.children.length - 1]
+        );
+      }, (this.vars.moveTime / 2) * 1000);
+    }
 
-      TweenMax.to(item, 1, {
+    // Animate items
+    this.items.forEach((item, index) => {
+      const isNewHoveredText = index === this.containerPercIndex;
+      const alpha = isNewHoveredText ? 1 : 0.1;
+      const x = isNewHoveredText ? this.snaps[index] + (item.width / 2) : this.snaps[index];
+      const tint = isNewHoveredText ? this.vars.active : this.vars.color;
+      const tintTime = isNewHoveredText ? (this.vars.moveTime - 0.2) : (this.vars.moveTime + 0.2);
+
+      TweenMax.to(item, this.vars.moveTime, {
+        alpha,
         x,
         ease: Expo.easeInOut,
         onComplete: () => {
@@ -295,7 +346,26 @@ class Titles extends Component {
           }
         }
       });
+      // Changing color is aesthetic, so I speed it up
+      TweenMax.to(item, tintTime, {
+        pixi: {
+          tint,
+        },
+        ease: Power1.easeInOut,
+      });
     });
+  }
+
+  setBounds() {
+    const appBounds = this.app.view.getBoundingClientRect();
+    this.top = appBounds.top;
+    this.bottom = this.top + this.canvasHeight;
+  }
+
+  setSnaps() {
+    const { data } = this.props;
+    const distanceX = this.width / data.length;
+    this.snaps = data.map((name, index) =>  distanceX * index);
   }
 
   clickHandler = e => {
@@ -303,6 +373,24 @@ class Titles extends Component {
     if (e.clientY > this.top && e.clientY < this.bottom && !this.isMoving) {
       this.move(this.hoverTextIndex);
     }
+  }
+
+  resizeHandler = ({width, height}) => {
+    this.width = width;
+    this.height = height;
+    this.canvasHeight = Math.round(this.height / 6);
+
+    // Resize canvas
+    this.app.renderer.resize(this.width, this.canvasHeight);
+
+    // Bounds
+    this.setBounds();
+
+    // Snaps
+    this.setSnaps();
+
+    // Reposition elements
+    this.appear();
   }
 
   changeDefaultColor = (color) => {
