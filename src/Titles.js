@@ -190,8 +190,6 @@ class Titles extends Component {
   }
 
   goTo = (direction) => () => {
-    console.log(this.containerPercIndex + direction);
-
     if (!this.isMoving) {
       this.move(this.containerPercIndex + direction);
     }
@@ -241,11 +239,6 @@ class Titles extends Component {
       const items = this.items;
       const activeText = items[this.containerPercIndex];
       const prevText = items[this.hoverTextIndex];
-
-      console.log(
-        prevText.text,
-        activeText.text,
-      );
 
       this.hover({
         from: prevText,
